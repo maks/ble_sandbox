@@ -34,6 +34,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Status status = Status.Idle;
 
   BluetoothDevice _connectedDevice;
+  BluetoothService _accelService;
 
   List<int> _accel;
   bool _listening = false;
@@ -57,6 +58,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 device: _connectedDevice,
                 disconnectDevice: _disconnectDevice,
                 accel: _accel,
+                stopAccel: () {
+                  _disableAccel(_accelService);
+                },
               ),
       ),
     );
@@ -111,6 +115,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _connectedDevice = null;
       _listening = false;
+      _accelService = null;
       device.disconnect();
       status = Status.Disconnected;
     });
@@ -124,6 +129,8 @@ class _MyHomePageState extends State<MyHomePage> {
       setState(() {
         if (service.uuid.toString() == 'f000aa10-0451-4000-b000-000000000000') {
           print('got Accel Service');
+          _accelService = service;
+
           service.characteristics.forEach((c) {
             print('char: ${c.uuid.toString()}');
             if (!_listening) {
@@ -148,16 +155,23 @@ class _MyHomePageState extends State<MyHomePage> {
         getForId(accelService, 'f000aa11-0451-4000-b000-000000000000');
     final charConfig =
         getForId(accelService, 'f000aa12-0451-4000-b000-000000000000');
-    final charPeriod =
-        getForId(accelService, 'f000aa13-0451-4000-b000-000000000000');
-    // final charNotification =
-    //     getForId(accelService, '00002902-0000-1000-8000-00805f9b34fb');
+    // final charPeriod =
+    //     getForId(accelService, 'f000aa13-0451-4000-b000-000000000000');
 
     // Set accelerometer period to 1000 ms, as units is in 10ms.
     //charPeriod.write([100]);
     // Set accelerometer configuration to ON.
     charConfig.write([1], withoutResponse: true);
     charData.setNotifyValue(true);
+  }
+
+  void _disableAccel(BluetoothService accelService) {
+    final charData =
+        getForId(accelService, 'f000aa11-0451-4000-b000-000000000000');
+    charData.setNotifyValue(false);
+    final charConfig =
+        getForId(accelService, 'f000aa12-0451-4000-b000-000000000000');
+    charConfig.write([0], withoutResponse: true);
   }
 
   BluetoothCharacteristic getForId(BluetoothService service, String uuid) =>
@@ -169,10 +183,16 @@ class ConnectedDevice extends StatelessWidget {
   final List<BluetoothService> services;
   final Function(BluetoothDevice) disconnectDevice;
   final List<int> accel;
+  final Function stopAccel;
 
-  const ConnectedDevice(
-      {Key key, this.device, this.disconnectDevice, this.services, this.accel})
-      : super(key: key);
+  const ConnectedDevice({
+    Key key,
+    this.device,
+    this.disconnectDevice,
+    this.services,
+    this.accel,
+    @required this.stopAccel,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -187,6 +207,10 @@ class ConnectedDevice extends StatelessWidget {
             ),
           ),
           Text('Accel data: ${accel ?? "none"}'),
+          TextButton(
+            onPressed: stopAccel,
+            child: Text('Stop Accel Data'),
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
