@@ -42,56 +42,16 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'Connected Device:',
-              style: TextStyle(
-                fontSize: 16,
+        child: (_connectedDevice == null)
+            ? Scanlist(
+                devices: _scannedDevices,
+                connectDevice: _connectDevice,
+              )
+            : ConnectedDevice(
+                device: _connectedDevice,
+                disconnectDevice: _disconnectDevice,
+                services: _services,
               ),
-            ),
-            if (_connectedDevice != null)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  BTDeviceName(
-                    device: _connectedDevice,
-                  ),
-                  TextButton(
-                    onPressed: () => _disconnectDevice(_connectedDevice),
-                    child: Text('Disconnect'),
-                  )
-                ],
-              ),
-            Divider(
-              height: 16,
-              thickness: 4,
-              color: Colors.amberAccent,
-            ),
-            Container(
-              height: 400,
-              child: ListView.builder(
-                itemBuilder: (context, index) {
-                  final device = _scannedDevices[index];
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      BTDeviceName(
-                        device: device,
-                      ),
-                      TextButton(
-                        onPressed: () => _connectDevice(device),
-                        child: Text('Connect'),
-                      )
-                    ],
-                  );
-                },
-                itemCount: _scannedDevices.length,
-              ),
-            ),
-          ],
-        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _scanForDevices(flutterBlue),
@@ -134,6 +94,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void _connectDevice(final BluetoothDevice device) async {
     // Connect to the device
     await device.connect();
+    _discoverServices(device);
     setState(() {
       _connectedDevice = device;
       _scannedDevices.remove(device);
@@ -146,14 +107,132 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _scannedDevices.add(device);
       _connectedDevice = null;
+      _services.clear();
     });
   }
 
   void _discoverServices(final BluetoothDevice device) async {
     List<BluetoothService> services = await device.discoverServices();
     services.forEach((service) {
-      // do something with service
+      setState(() {
+        _services.add(service);
+      });
     });
+  }
+}
+
+class Scanlist extends StatelessWidget {
+  final List<BluetoothDevice> devices;
+  final Function(BluetoothDevice) connectDevice;
+
+  const Scanlist({Key key, this.devices, this.connectDevice}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 800,
+      child: ListView.builder(
+        itemBuilder: (context, index) {
+          final device = devices[index];
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              BTDeviceName(
+                device: device,
+              ),
+              TextButton(
+                onPressed: () => connectDevice(device),
+                child: Text('Connect'),
+              )
+            ],
+          );
+        },
+        itemCount: devices.length,
+      ),
+    );
+  }
+}
+
+class ConnectedDevice extends StatelessWidget {
+  final BluetoothDevice device;
+  final List<BluetoothService> services;
+  final Function(BluetoothDevice) disconnectDevice;
+
+  const ConnectedDevice(
+      {Key key, this.device, this.disconnectDevice, this.services})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 800,
+      child: Column(
+        children: [
+          Text(
+            'Connected Device:',
+            style: TextStyle(
+              fontSize: 16,
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              BTDeviceName(
+                device: device,
+              ),
+              TextButton(
+                onPressed: () => disconnectDevice(device),
+                child: Text('Disconnect'),
+              )
+            ],
+          ),
+          Container(
+            height: 450,
+            child: ListView.separated(
+              itemBuilder: (context, index) {
+                return BTServiceCard(services[index]);
+              },
+              itemCount: services?.length ?? 0,
+              separatorBuilder: (BuildContext context, int index) => Divider(
+                thickness: 2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BTServiceCard extends StatelessWidget {
+  final BluetoothService service;
+  BTServiceCard(
+    this.service,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final chars = service.characteristics;
+    return Column(
+      children: [
+        Text('Service: ${service.uuid}'),
+        Container(
+          height: 200,
+          child: ListView.builder(
+            itemBuilder: (context, index) {
+              final char = chars[index];
+              return Column(
+                children: [
+                  Text('uuid: ${char.uuid}'),
+                  Text('${char.properties}'),
+                ],
+              );
+            },
+            itemCount: chars.length,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -171,11 +250,11 @@ class BTDeviceName extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Text(
-              '${device.name.isEmpty ? 'Unknown' : device.name}',
+              '${device?.name?.isEmpty ?? false ? 'Unknown' : device?.name}',
               style: TextStyle(fontSize: 18),
             ),
           ),
-          Text('${device.id}'),
+          Text('${device?.id}'),
         ],
       ),
     );
