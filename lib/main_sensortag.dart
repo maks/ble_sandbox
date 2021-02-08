@@ -93,6 +93,9 @@ class _MyHomePageState extends State<MyHomePage> {
         print('${r.device.name ?? r.device.id} found! rssi: ${r.rssi}');
         if (r.device.name.toLowerCase().startsWith('sensortag')) {
           if (_connectedDevice == null) {
+            // Stop scanning
+            flutterBlue.stopScan();
+
             _connectDevice(r.device);
             setState(() {
               status = Status.Connected;
@@ -103,8 +106,10 @@ class _MyHomePageState extends State<MyHomePage> {
         }
       }
     });
-    // Stop scanning
-    flutterBlue.stopScan();
+    if (status == Status.Scanning) {
+      // Stop scanning
+      flutterBlue.stopScan();
+    }
   }
 
   void _connectDevice(final BluetoothDevice device) async {
@@ -118,52 +123,53 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _disconnectDevice(final BluetoothDevice device) async {
     // Disconnect from device
-    device.disconnect();
+    await device.disconnect();
     setState(() {
       _connectedDevice = null;
       _listening = false;
       _accelService = null;
-      device.disconnect();
+
       status = Status.Disconnected;
     });
   }
 
   void _discoverServices(final BluetoothDevice device) async {
     List<BluetoothService> services = await device.discoverServices();
-    services.forEach((service) {
-      setState(() {
-        print('got service: ${service.uuid}');
-        if (service.uuid.toString() == 'f000aa10-0451-4000-b000-000000000000') {
-          print('got Accel Service');
-          _accelService = service;
 
-          // if (!_listening) {
-          //   print('listening to accel');
-          //   _enableAccel(service);
-          // }
+    await Future.forEach(services, (service) async {
+      print('got service: ${service.uuid}');
+      if (service.uuid.toString() == 'f000aa10-0451-4000-b000-000000000000') {
+        print('got Accel Service');
+        _accelService = service;
+
+        if (!_listening) {
+          print('listening to accel');
+          await _enableAccel(service);
+          print('awaited accel');
         }
-        if (service.uuid.toString() == '0000ffe0-0000-1000-8000-00805f9b34fb') {
-          print('got button Service');
-          service.characteristics.forEach((c) {
-            print('char: ${c.uuid.toString()}');
-            if (c.uuid.toString() == '0000ffe1-0000-1000-8000-00805f9b34fb') {
-              print('got button charactersitc!');
+      }
 
-              c.setNotifyValue(true);
-              c.value.listen((event) {
-                print('button pressed! $event');
-                setState(() {
-                  _buttonState = event[0];
-                });
+      if (service.uuid.toString() == '0000ffe0-0000-1000-8000-00805f9b34fb') {
+        print('got button Service');
+        service.characteristics.forEach((c) async {
+          print('char: ${c.uuid.toString()}');
+          if (c.uuid.toString() == '0000ffe1-0000-1000-8000-00805f9b34fb') {
+            print('got button characteristic!');
+
+            c.value.listen((event) {
+              print('button pressed! $event');
+              setState(() {
+                _buttonState = event.isNotEmpty ? event[0] : 0;
               });
-            }
-          });
-        }
-      });
+            });
+            await c.setNotifyValue(true);
+          }
+        });
+      }
     });
   }
 
-  void _enableAccel(BluetoothService accelService) {
+  Future<void> _enableAccel(BluetoothService accelService) async {
     final charData =
         getForId(accelService, 'f000aa11-0451-4000-b000-000000000000');
     final charConfig =
@@ -171,27 +177,28 @@ class _MyHomePageState extends State<MyHomePage> {
     // final charPeriod =
     //     getForId(accelService, 'f000aa13-0451-4000-b000-000000000000');
 
-    // Set accelerometer period to 1000 ms, as units is in 10ms.
-    //charPeriod.write([100]);
+    // Set accelerometer period to 500 ms, as units is in 10ms.
+    // charPeriod.write([50]);
     // Set accelerometer configuration to ON.
     charConfig.write([1], withoutResponse: true);
-    charData.setNotifyValue(true);
 
     charData.value.listen((event) {
       setState(() {
         _accel = event;
+        _listening = true;
       });
     });
-    _listening = true;
+    final r = await charData.setNotifyValue(true);
+    print('accel notify enabled: $r');
   }
 
-  void _disableAccel(BluetoothService accelService) {
+  void _disableAccel(BluetoothService accelService) async {
     final charData =
         getForId(accelService, 'f000aa11-0451-4000-b000-000000000000');
-    charData.setNotifyValue(false);
+    await charData.setNotifyValue(false);
     final charConfig =
         getForId(accelService, 'f000aa12-0451-4000-b000-000000000000');
-    charConfig.write([0], withoutResponse: true);
+    await charConfig.write([0], withoutResponse: true);
   }
 
   BluetoothCharacteristic getForId(BluetoothService service, String uuid) =>
