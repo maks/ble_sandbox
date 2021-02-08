@@ -1,8 +1,17 @@
-# ble_sandbox
+# BLE Sandbox
 
+This project serves as a sandbox for Flutter apps that interact with various BLE devices.
 
 
 ## TI SensorTag CC2541
+
+### Flutter app
+
+`lib\main_sensortag.dart` is a basic Flutter app that connects to a TI CC2541 SensorTag device over BLE.
+For now it just displays accelerometer sensor data and state of the 2 push buttons on the device, as well as
+allowing the accelerometer sensor to be deactivated.
+
+This demonstrates all the basic types of interactions over BLE with the sensortag.
 
 https://www.ti.com/tool/CC2541SENSORTAG-RD
 
@@ -10,18 +19,12 @@ https://www.ti.com/tool/CC2541SENSORTAG-RD
 
 https://web.archive.org/web/20171218051940/https://processors.wiki.ti.com/index.php/SensorTag_User_Guide
 
+[Full BLE attributes spec sheet](file:///home/maks/Downloads/BLE_SensorTag_GATT_Server.pdf)
 
-```
-ACCELEROMETER_SERVICE = 'f000aa10-0451-4000-b000-000000000000';
-ACCELEROMETER_DATA = 'f000aa11-0451-4000-b000-000000000000';
-ACCELEROMETER_CONFIG = 'f000aa12-0451-4000-b000-000000000000';
-ACCELEROMETER_PERIOD = 'f000aa13-0451-4000-b000-000000000000';
-ACCELEROMETER_NOTIFICATION = '00002902-0000-1000-8000-00805f9b34fb';
-MAGNETOMETER_SERVICE = 'f000aa30-0451-4000-b000-000000000000';
-MAGNETOMETER_DATA = 'f000aa31-0451-4000-b000-000000000000';
-MAGNETOMETER_CONFIG = 'f000aa32-0451-4000-b000-000000000000';
-MAGNETOMETER_PERIOD = 'f000aa33-0451-4000-b000-000000000000';
-MAGNETOMETER_NOTIFICATION = '00002902-0000-1000-8000-00805f9b34fb';
-```
 
-[ref: example code with the BLE services and charactistics](https://github.com/evothings/evothings-examples/blob/master/examples/ble-ti-sensortag-cc2541-demo/app.js)
+[This example code with the BLE services and characteristics was very helpful to get me started.](https://github.com/evothings/evothings-examples/blob/master/examples/ble-ti-sensortag-cc2541-demo/app.js)
+It was especially useful in understanding how to turn on/off the accelerometer sensor. 
+
+## Espruino Puck.js
+
+[Docs for using BLE with the Puck.](https://www.espruino.com/About+Bluetooth+LE)
