@@ -8,6 +8,7 @@ void main() {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    FlutterBlue.instance.setLogLevel(LogLevel.critical);
     return MaterialApp(
       title: 'SensorTag',
       theme: ThemeData(
@@ -167,13 +168,13 @@ class _MyHomePageState extends State<MyHomePage> {
         getForId(accelService, 'f000aa11-0451-4000-b000-000000000000');
     final charConfig =
         getForId(accelService, 'f000aa12-0451-4000-b000-000000000000');
-    // final charPeriod =
-    //     getForId(accelService, 'f000aa13-0451-4000-b000-000000000000');
+    final charPeriod =
+        getForId(accelService, 'f000aa13-0451-4000-b000-000000000000');
 
     // Set accelerometer period to 500 ms, as units is in 10ms.
-    // charPeriod.write([50]);
+    await charPeriod.write([50]);
     // Set accelerometer configuration to ON.
-    charConfig.write([1], withoutResponse: true);
+    await charConfig.write([1], withoutResponse: true);
 
     charData.value.listen((event) {
       setState(() {
@@ -181,7 +182,7 @@ class _MyHomePageState extends State<MyHomePage> {
         _listening = true;
       });
     });
-    final r = await charData.setNotifyValue(true);
+    await charData.setNotifyValue(true);
   }
 
   void _disableAccel(BluetoothService accelService) async {
