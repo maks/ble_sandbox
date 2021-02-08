@@ -139,25 +139,18 @@ class _MyHomePageState extends State<MyHomePage> {
     await Future.forEach(services, (service) async {
       print('got service: ${service.uuid}');
       if (service.uuid.toString() == 'f000aa10-0451-4000-b000-000000000000') {
-        print('got Accel Service');
         _accelService = service;
 
         if (!_listening) {
-          print('listening to accel');
           await _enableAccel(service);
-          print('awaited accel');
         }
       }
 
       if (service.uuid.toString() == '0000ffe0-0000-1000-8000-00805f9b34fb') {
         print('got button Service');
         service.characteristics.forEach((c) async {
-          print('char: ${c.uuid.toString()}');
           if (c.uuid.toString() == '0000ffe1-0000-1000-8000-00805f9b34fb') {
-            print('got button characteristic!');
-
             c.value.listen((event) {
-              print('button pressed! $event');
               setState(() {
                 _buttonState = event.isNotEmpty ? event[0] : 0;
               });
@@ -189,7 +182,6 @@ class _MyHomePageState extends State<MyHomePage> {
       });
     });
     final r = await charData.setNotifyValue(true);
-    print('accel notify enabled: $r');
   }
 
   void _disableAccel(BluetoothService accelService) async {
