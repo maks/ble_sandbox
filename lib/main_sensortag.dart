@@ -39,10 +39,11 @@ class _MyHomePageState extends State<MyHomePage> {
   List<int> _accel;
   bool _listening = false;
 
+  int _buttonState = 0;
+
   @override
   void initState() {
     super.initState();
-    _scanForDevices(flutterBlue);
   }
 
   @override
@@ -61,7 +62,13 @@ class _MyHomePageState extends State<MyHomePage> {
                 stopAccel: () {
                   _disableAccel(_accelService);
                 },
+                buttonState: _buttonState,
               ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _scanForDevices(flutterBlue),
+        tooltip: 'Scan',
+        child: Icon(Icons.search),
       ),
     );
   }
@@ -119,30 +126,36 @@ class _MyHomePageState extends State<MyHomePage> {
       device.disconnect();
       status = Status.Disconnected;
     });
-    Future.delayed(Duration(milliseconds: 500));
-    _scanForDevices(flutterBlue);
   }
 
   void _discoverServices(final BluetoothDevice device) async {
     List<BluetoothService> services = await device.discoverServices();
     services.forEach((service) {
       setState(() {
+        print('got service: ${service.uuid}');
         if (service.uuid.toString() == 'f000aa10-0451-4000-b000-000000000000') {
           print('got Accel Service');
           _accelService = service;
 
+          // if (!_listening) {
+          //   print('listening to accel');
+          //   _enableAccel(service);
+          // }
+        }
+        if (service.uuid.toString() == '0000ffe0-0000-1000-8000-00805f9b34fb') {
+          print('got button Service');
           service.characteristics.forEach((c) {
             print('char: ${c.uuid.toString()}');
-            if (!_listening) {
-              print('listening to accel');
-              _enableAccel(service);
+            if (c.uuid.toString() == '0000ffe1-0000-1000-8000-00805f9b34fb') {
+              print('got button charactersitc!');
 
+              c.setNotifyValue(true);
               c.value.listen((event) {
+                print('button pressed! $event');
                 setState(() {
-                  _accel = event;
+                  _buttonState = event[0];
                 });
               });
-              _listening = true;
             }
           });
         }
@@ -163,6 +176,13 @@ class _MyHomePageState extends State<MyHomePage> {
     // Set accelerometer configuration to ON.
     charConfig.write([1], withoutResponse: true);
     charData.setNotifyValue(true);
+
+    charData.value.listen((event) {
+      setState(() {
+        _accel = event;
+      });
+    });
+    _listening = true;
   }
 
   void _disableAccel(BluetoothService accelService) {
@@ -178,65 +198,100 @@ class _MyHomePageState extends State<MyHomePage> {
       service.characteristics.where((c) => c.uuid.toString() == uuid).first;
 }
 
+class ButtonState extends StatelessWidget {
+  final state;
+
+  bool get leftDown => state == 2 || state == 3;
+  bool get rightDown => state == 1 || state == 3;
+
+  const ButtonState({Key key, this.state = 0}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        TextButton(
+          onPressed: null,
+          child: Text('Left', style: Theme.of(context).textTheme.headline5),
+          style: TextButton.styleFrom(
+              backgroundColor: leftDown ? Colors.amber : Colors.grey),
+        ),
+        Container(width: 30),
+        TextButton(
+          onPressed: null,
+          child: Text('Right', style: Theme.of(context).textTheme.headline5),
+          style: TextButton.styleFrom(
+              backgroundColor: rightDown ? Colors.amber : Colors.grey),
+        ),
+      ],
+    );
+  }
+}
+
 class ConnectedDevice extends StatelessWidget {
   final BluetoothDevice device;
   final List<BluetoothService> services;
   final Function(BluetoothDevice) disconnectDevice;
   final List<int> accel;
   final Function stopAccel;
+  final int buttonState;
 
   const ConnectedDevice({
     Key key,
     this.device,
-    this.disconnectDevice,
     this.services,
+    this.disconnectDevice,
     this.accel,
     @required this.stopAccel,
+    this.buttonState,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 800,
-      child: Column(
-        children: [
-          Text(
-            'Connected Device:..',
-            style: TextStyle(
-              fontSize: 16,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          'Connected Device:..',
+          style: TextStyle(
+            fontSize: 16,
+          ),
+        ),
+        Text('Accel data: ${accel ?? "none"}'),
+        TextButton(
+          onPressed: stopAccel,
+          child: Text('Stop Accel Data'),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            BTDeviceName(
+              device: device,
+            ),
+            TextButton(
+              onPressed: () => disconnectDevice(device),
+              child: Text('Disconnect'),
+            )
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 16.0),
+          child: ButtonState(state: buttonState),
+        ),
+        Container(
+          height: 250,
+          child: ListView.separated(
+            itemBuilder: (context, index) {
+              return Text('${services[index]}');
+            },
+            itemCount: services?.length ?? 0,
+            separatorBuilder: (BuildContext context, int index) => Divider(
+              thickness: 2,
             ),
           ),
-          Text('Accel data: ${accel ?? "none"}'),
-          TextButton(
-            onPressed: stopAccel,
-            child: Text('Stop Accel Data'),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              BTDeviceName(
-                device: device,
-              ),
-              TextButton(
-                onPressed: () => disconnectDevice(device),
-                child: Text('Disconnect'),
-              )
-            ],
-          ),
-          Container(
-            height: 450,
-            child: ListView.separated(
-              itemBuilder: (context, index) {
-                return Text('${services[index]}');
-              },
-              itemCount: services?.length ?? 0,
-              separatorBuilder: (BuildContext context, int index) => Divider(
-                thickness: 2,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
